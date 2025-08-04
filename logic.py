@@ -72,6 +72,36 @@ class DatabaseManager:
                 self.mark_prize_used_permanent(prize_id)
             
             return True
+    
+
+    def get_winners_count(self, prize_id):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute('SELECT COUNT(*) FROM winners WHERE prize_id = ?', (prize_id,))
+            return cur.fetchone()[0]
+        
+    def has_user_won(self, user_id, prize_id):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute('SELECT 1 FROM winners WHERE user_id = ? AND prize_id = ?', (user_id, prize_id))
+            return cur.fetchone() is not None
+        
+    def get_rating(self):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute('''
+            SELECT users.user_name, COUNT(*) as total_wins
+            FROM winners
+            JOIN users ON winners.user_id = users.user_id
+            GROUP BY winners.user_id
+            ORDER BY total_wins DESC
+            LIMIT 10
+        ''')
+        return cur.fetchall()
+
 
     def mark_prize_used_session(self, prize_id):
         conn = sqlite3.connect(self.database)
@@ -111,7 +141,7 @@ class DatabaseManager:
                 ORDER BY RANDOM() LIMIT 1
             ''')
             return cur.fetchone()
-
+    
 
 def hide_img(img_name, base_img_dir='img', base_hidden_img_dir='hidden_img'):
     input_path = os.path.join(base_img_dir, img_name)
