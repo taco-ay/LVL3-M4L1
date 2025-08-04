@@ -3,7 +3,9 @@ from discord.ext import commands, tasks
 from logic import DatabaseManager
 from config import TOKEN, DATABASE
 import os
+import cv2
 import sqlite3
+from logic import create_collage
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -157,10 +159,51 @@ async def debug_winners(ctx):
         message = "🏆 Kazanan yok."
     await ctx.send(message[:2000])
 
+# Derecelendirme komutunun altına veya uygun bir yere ekleyin
+@bot.command()
+async def my_score(ctx):
+    user_id = ctx.author.id
+    
+    # Kullanıcının kazandığı resim adlarını veritabanından al
+    prizes_won = manager.get_winners_img(user_id)
+    
+    # Bütün ödül resimlerinin listesini al
+    all_prizes = os.listdir('img')
+    
+    # Kazanılan resimler için orijinal, diğerleri için gizli resim yollarını oluştur
+    image_paths = []
+    for prize_name in all_prizes:
+        if prize_name in prizes_won:
+            image_paths.append(os.path.join('img', prize_name))
+        else:
+            image_paths.append(os.path.join('hidden_img', prize_name))
+            
+    # Kolajı oluştur
+    if not image_paths:
+        await ctx.send("Henüz hiçbir ödül kazanmadınız.")
+        return
+
+    collage_image = create_collage(image_paths)
+
+    if collage_image is None:
+        await ctx.send("Kolaj oluşturulurken bir hata oluştu.")
+        return
+
+    # Oluşturulan kolajı bir dosyaya kaydet
+    collage_path = f"collage_{user_id}.png"
+    cv2.imwrite(collage_path, collage_image)
+    
+    # Dosyayı Discord'a gönder ve sonra sil
+    try:
+        with open(collage_path, 'rb') as f:
+            await ctx.send(file=discord.File(f, filename=collage_path))
+    finally:
+        os.remove(collage_path)
+
 @bot.command()
 async def debug_all(ctx):
     await debug_users(ctx)
     await debug_list(ctx)
     await debug_winners(ctx)
-
+    await my_score(ctx)
 bot.run(TOKEN)
