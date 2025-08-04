@@ -3,6 +3,8 @@ from datetime import datetime
 from config import DATABASE
 import os
 import cv2
+import numpy as np
+from math import sqrt, ceil
 
 class DatabaseManager:
     def __init__(self, database):
@@ -142,6 +144,56 @@ class DatabaseManager:
             ''')
             return cur.fetchone()
     
+    def get_winners_img(self, user_id):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute('''
+            SELECT image FROM winners
+            INNER JOIN prizes ON
+            winners.prize_id = prizes.prize_id
+            WHERE user_id = ?''', (user_id, ))
+            return [row[0] for row in cur.fetchall()] # Sadece resim adlarını döndürür
+    
+
+
+def create_collage(image_paths):
+    images = []
+    # Resim dosyalarını okuyup listeye ekleme
+    for path in image_paths:
+        try:
+            image = cv2.imread(path)
+            # Eğer resim okunamazsa boş bir siyah resim ekleme
+            if image is None:
+                print(f"Uyarı: {path} bulunamadı veya okunamadı.")
+                images.append(np.zeros((300, 300, 3), dtype=np.uint8)) # Örnek olarak 300x300 boyutunda siyah resim
+            else:
+                images.append(image)
+        except Exception as e:
+            print(f"Hata oluştu: {path} - {e}")
+            images.append(np.zeros((300, 300, 3), dtype=np.uint8))
+    
+    if not images:
+        return None
+
+    num_images = len(images)
+    num_cols = int(sqrt(num_images))
+    if num_cols == 0: num_cols = 1
+    num_rows = ceil(num_images / num_cols)
+    
+    # Resimleri aynı boyuta getirme (küçük bir optimizasyon)
+    resized_images = [cv2.resize(img, (300, 300)) for img in images]
+
+    collage = np.zeros((int(num_rows * 300), int(num_cols * 300), 3), dtype=np.uint8)
+    
+    # Resimleri kolaja yerleştirme
+    for i, image in enumerate(resized_images):
+        row = i // num_cols
+        col = i % num_cols
+        collage[int(row*300):int((row+1)*300), int(col*300):int((col+1)*300), :] = image
+    
+    return collage
+
 
 def hide_img(img_name, base_img_dir='img', base_hidden_img_dir='hidden_img'):
     input_path = os.path.join(base_img_dir, img_name)
