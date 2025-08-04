@@ -32,13 +32,23 @@ async def start(ctx):
     user_id = ctx.author.id
     user_name = ctx.author.name
 
-    if user_id in manager.get_users():
-        await ctx.send("Zaten kayıtlısınız!")
+    users = manager.get_users()
+    total_users = len(users)
+
+    if user_id in users:
+        # Kullanıcının kazandığı son ödülü bul
+        last_win_time = manager.get_last_win_time(user_id)
+        if last_win_time:
+            await ctx.send(f"Zaten kayıtlısınız! 🎉\nSon ödülünüzü {last_win_time} tarihinde kazandınız.\nToplam {total_users} kayıtlı kullanıcı var.")
+        else:
+            await ctx.send(f"Zaten kayıtlısınız! Henüz ödül kazanmadınız.\nToplam {total_users} kayıtlı kullanıcı var.")
     else:
         manager.add_user(user_id, user_name)
-        await ctx.send("""Merhaba! Başarılı bir şekilde kaydoldunuz!
+        await ctx.send(f"""Merhaba {user_name}! Başarılı bir şekilde kaydoldunuz!
 Her dakika yeni resimler alacaksınız. “Al!” butonuna tıklayın!
-Sadece ilk 3 kişi resmi kazanacak!""")
+Sadece ilk 3 kişi resmi kazanacak!
+Şu anda toplam {total_users + 1} kullanıcı kayıtlı.""")
+    
     print(f"'{ctx.author.name}' tarafından !start komutu kullanıldı.")
 
 @tasks.loop(minutes=1)
@@ -197,13 +207,17 @@ async def my_score(ctx):
     try:
         with open(collage_path, 'rb') as f:
             await ctx.send(file=discord.File(f, filename=collage_path))
+            await ctx.send(f"🏆 Toplam {len(prizes_won)} ödül kazandınız!")
     finally:
         os.remove(collage_path)
 
 @bot.command()
 async def debug_all(ctx):
+    await ctx.send('kullanıcıların idsi')
     await debug_users(ctx)
+    await ctx.send('0=alınmamış 1=alınmış')
     await debug_list(ctx)
     await debug_winners(ctx)
+    await ctx.send('senin skorun')
     await my_score(ctx)
 bot.run(TOKEN)
