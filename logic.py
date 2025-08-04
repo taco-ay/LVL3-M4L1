@@ -104,6 +104,18 @@ class DatabaseManager:
         ''')
         return cur.fetchall()
 
+    def get_last_win_time(self, user_id):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute('''
+            SELECT win_time FROM winners 
+            WHERE user_id = ? 
+            ORDER BY win_time DESC LIMIT 1
+            ''', (user_id,))
+        result = cur.fetchone()
+        return result[0] if result else None
+
 
     def mark_prize_used_session(self, prize_id):
         conn = sqlite3.connect(self.database)
